@@ -1,14 +1,20 @@
-const axios = require('axios');
+const { Telegraf } = require('telegraf');
+const cron = require('node-cron');
+const BOT_TOKEN = '5879315038:AAFlbnICx1tR51ZTLjNciaNOd-qFe4Hq9Yk';
+const MAIN_CHANNEL_CHAT_ID = '@beinspiredeveryday';
+const bot = new Telegraf(BOT_TOKEN);
+const GREETING = 
+`Hi! Are you ready to be inspired everyday? Type /inspire to start getting motivated!
+For full list of available commands, type /list`;
 
-botTokenId = '5879315038:AAFlbnICx1tR51ZTLjNciaNOd-qFe4Hq9Yk'
+const COMMANDS = {
+  list: "Lists all available commands",
+  start: "Kick start your journey to get inspired!",
+  subscribe: "Schedule your inspiration to be sent",
+  inspire: "Get inspired by getting a quote"
+};
 
-chatId = '@beinspiredeveryday'
-
-url = 'https://api.telegram.org/bot';
-
-url += botTokenId;
-
-quotesBank = [
+const QUOTES_BANK = [
   "Life is about making an impact, not making an income. -Kevin Kruse",
   "Whatever the mind of man can conceive and believe, it can achieve. –Napoleon Hill",
   "Strive not to be a success, but rather to be of value. –Albert Einstein",
@@ -34,30 +40,40 @@ quotesBank = [
   "I am not a product of my circumstances. I am a product of my decisions. –Stephen Covey",
   "Every child is an artist.  The problem is how to remain an artist once he grows up. –Pablo Picasso",
   "You can never cross the ocean until you have the courage to lose sight of the shore. –Christopher Columbus",
-]
+];
 
-function createParams(message) {
-  const params = {
-    chat_id: chatId,
-    text: message,
-  };
-  return params;
-}
+let subscribers = {};
 
-async function sendMessage(message) {
-  const params = createParams(message)
-  // console.log(${url}/sendMessage?${new URLSearchParams(params)})
-  await axios.post(`${url}/sendMessage?${new URLSearchParams(params)}`)
-}
+cron.schedule("*/10 * * * * *", () => {
+  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1))
+  console.log('running a task every 10 secs');
+  bot.telegram.sendMessage(MAIN_CHANNEL_CHAT_ID, QUOTES_BANK[index]);
+});
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+bot.start(ctx => ctx.reply(GREETING));
 
-async function run() {
-  while (true) {
-    index = Math.floor(Math.random() * (quotesBank.length + 1))
-    sendMessage(quotesBank[index])
-    await sleep(5000)
+bot.command('subscribe', (ctx) => {
+  console.log(ctx.message.text);
+  const id = ctx.chat.id;
+  ctx.sendPoll("TEST?", ["1", "2"]);
+});
+
+bot.command('inspire', (ctx) => {
+  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+  ctx.reply(QUOTES_BANK[index]);
+});
+
+bot.command('list', (ctx) => {
+  let reply = "";
+  for (const [command, description] of Object.entries(COMMANDS)) {
+    reply += "/" + command + " " + description + "\n";
   }
-}
+  ctx.reply(reply);
+});
 
-run()
+// Launch bot
+bot.launch();
+
+// Enable graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
