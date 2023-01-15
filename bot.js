@@ -42,20 +42,54 @@ const QUOTES_BANK = [
   "You can never cross the ocean until you have the courage to lose sight of the shore. –Christopher Columbus",
 ];
 
-let subscribers = {};
+let subscribers = {}
 
-cron.schedule("*/10 * * * * *", () => {
-  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1))
-  console.log('running a task every 10 secs');
-  bot.telegram.sendMessage(MAIN_CHANNEL_CHAT_ID, QUOTES_BANK[index]);
-});
+subscribers[MAIN_CHANNEL_CHAT_ID] = 
+  cron.schedule("*/1 * * * *", () => {
+    const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+    bot.telegram.sendMessage(MAIN_CHANNEL_CHAT_ID, QUOTES_BANK[index]);
+  });
 
 bot.start(ctx => ctx.reply(GREETING));
 
 bot.command('subscribe', (ctx) => {
-  console.log(ctx.message.text);
-  const id = ctx.chat.id;
-  ctx.sendPoll("TEST?", ["1", "2"]);
+  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+  const text = ctx.message.text.split(' ');
+  const id = "" + ctx.chat.id;
+  if (text.length == 1) {
+    ctx.sendMessage("Please specify the interval you wish to be inspired\n/subscribe <seconds> <minutes> <hours>");
+    return;
+  }
+  text[text.length - 1] = "*/" + text[text.length - 1];
+  const cronDesc = text.slice(1).reduce((x, y) => x + ' ' + y) + ' ' + Array(7 - text.length).fill("*").reduce((x, y) => x + ' ' + y);
+  
+  if (cron.validate(cronDesc)) {
+    if (id in subscribers) {
+      subscribers[id].stop();
+      delete subscribers[id];
+    }
+    console.log(cronDesc);
+    ctx.sendMessage("Interval received, begin motivating!");
+    ctx.sendMessage(QUOTES_BANK[Math.floor(Math.random() * (QUOTES_BANK.length + 1))]);
+    subscribers[id] = 
+      cron.schedule(cronDesc, () => {
+        const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+        bot.telegram.sendMessage(id, QUOTES_BANK[index]);
+      });
+    console.log(subscribers);
+    return;
+  }
+  ctx.sendMessage("Interval not recognized. Please make sure seconds is between 0 - 59, minutes is between 0 - 59, hours is between 0 - 23");
+});
+
+bot.command('unsubscribe', (ctx) => {
+  const id = "" + ctx.chat.id;
+  if (!(id in subscribers)) {
+    ctx.sendMessage("You are not subsribed yet :(");
+    return;
+  }
+  subscribers[id].stop();
+  delete subscribers[id];
 });
 
 bot.command('inspire', (ctx) => {
@@ -75,5 +109,17 @@ bot.command('list', (ctx) => {
 bot.launch();
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+const cleanCron = () => {
+  for (const [id, task] of subscribers) {
+    delete subscribers[id];
+  }
+}
+
+process.once('SIGINT', () => {
+  cleanCron();
+  bot.stop('SIGINT');
+});
+process.once('SIGTERM', () => {
+  cleanCron();
+  bot.stop('SIGTERM')
+});
