@@ -11,7 +11,8 @@ const COMMANDS = {
   list: "Lists all available commands",
   start: "Kick start your journey to get inspired!",
   subscribe: "Schedule your inspiration to be sent",
-  inspire: "Get inspired by getting a quote"
+  inspire: "Get inspired by getting a quote",
+  unsubscribe: "Cancel your motivation subscription :("
 };
 
 const QUOTES_BANK = [
@@ -91,14 +92,14 @@ let subscribers = {}
 
 subscribers[MAIN_CHANNEL_CHAT_ID] = 
   cron.schedule("*/1 * * * *", () => {
-    const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+    const index = Math.floor(Math.random() * (QUOTES_BANK.length));
     bot.telegram.sendMessage(MAIN_CHANNEL_CHAT_ID, QUOTES_BANK[index]);
   });
 
 bot.start(ctx => ctx.reply(GREETING));
 
 bot.command('subscribe', (ctx) => {
-  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+  const index = Math.floor(Math.random() * (QUOTES_BANK.length));
   const text = ctx.message.text.split(' ');
   const id = "" + ctx.chat.id;
   if (text.length == 1) {
@@ -113,15 +114,13 @@ bot.command('subscribe', (ctx) => {
       subscribers[id].stop();
       delete subscribers[id];
     }
-    console.log(cronDesc);
     ctx.sendMessage("Interval received, begin motivating!");
     ctx.sendMessage(QUOTES_BANK[Math.floor(Math.random() * (QUOTES_BANK.length + 1))]);
     subscribers[id] = 
       cron.schedule(cronDesc, () => {
-        const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+        const index = Math.floor(Math.random() * (QUOTES_BANK.length));
         bot.telegram.sendMessage(id, QUOTES_BANK[index]);
       });
-    console.log(subscribers);
     return;
   }
   ctx.sendMessage("Interval not recognized. Please make sure seconds is between 0 - 59, minutes is between 0 - 59, hours is between 0 - 23");
@@ -135,10 +134,11 @@ bot.command('unsubscribe', (ctx) => {
   }
   subscribers[id].stop();
   delete subscribers[id];
+  ctx.sendMessage("You have stopped being motivated :(");
 });
 
 bot.command('inspire', (ctx) => {
-  const index = Math.floor(Math.random() * (QUOTES_BANK.length + 1));
+  const index = Math.floor(Math.random() * (QUOTES_BANK.length));
   ctx.reply(QUOTES_BANK[index]);
 });
 
@@ -155,7 +155,7 @@ bot.launch();
 
 // Enable graceful stop
 const cleanCron = () => {
-  for (const [id, task] of subscribers) {
+  for (const [id, task] of Object.entries(subscribers)) {
     delete subscribers[id];
   }
 }
